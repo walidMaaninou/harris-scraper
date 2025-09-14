@@ -12,8 +12,8 @@ st.title("Instrument Scraper")
 
 # --- User Inputs ---
 instrument_keys = st.multiselect(
-    "Select Instrument Types", 
-    sorted(set(instrument_types.values()))  # show the keys for better UX
+    "Select Instrument Types",
+    sorted(set(instrument_types.keys()))  # show the keys for better UX
 )
 
 start_date = st.date_input("Start Date", value=date(2025, 9, 1))
@@ -24,14 +24,21 @@ if st.button("Start Scraping") and instrument_keys:
     status_placeholder = st.empty()
     all_results = []
 
-    for i, key in enumerate(instrument_keys, start=1):
-        code = key
-        status_placeholder.info(f"Scraping instrument type {i}/{len(instrument_keys)}: {key}...")
-        
-        # Call the scraping function
+    # Group keys by code (avoid scraping duplicates)
+    code_to_keys = {}
+    for key in instrument_keys:
+        code = instrument_types[key]
+        code_to_keys.setdefault(code, []).append(key)
+
+    for i, (code, keys) in enumerate(code_to_keys.items(), start=1):
+        status_placeholder.info(
+            f"Scraping instrument type {i}/{len(code_to_keys)}: {', '.join(keys)}..."
+        )
+
+        # Call the scraping function once per unique code
         df = get_table(code, start_date, end_date)
         if not df.empty:
-            df["Instrument Type"] = key  # optional: add a column to know the type
+            df["Instrument Type"] = ", ".join(keys)  # annotate with all keys
             all_results.append(df)
 
     status_placeholder.success("✅ Scraping completed!")

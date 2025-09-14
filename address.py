@@ -1,44 +1,53 @@
-import re
-import pandas as pd
+import asyncio
+from playwright.async_api import async_playwright
 
-def extract_description(desc: str) -> str:
-    if pd.isna(desc):
-        return ""
+async def main(owner_name, legal_desc):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        context = await browser.new_context(
+            extra_http_headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/139.0.0.0 Safari/537.36",
+                "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8,fr;q=0.7",
+                "Accept": "*/*",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+        )
+        page = await context.new_page()
+        await page.goto("https://hcad.org/property-search/property-search")
 
-    text = str(desc)
+        # Wait for the iframe
+        iframe_locator = page.locator("iframe#parentIframe")
+        await iframe_locator.wait_for()
+        iframe_el = await iframe_locator.element_handle()
+        frame = await iframe_el.content_frame()
 
-    # Get everything after "Desc:"
-    match = re.search(r"Desc:\s*(.*)", text, re.IGNORECASE)
-    if not match:
-        return text.strip()
+        # Click Advanced Search button
+        advanced_btn = frame.locator("button.btn.btn-primary", has_text="Advanced Search").first
+        await advanced_btn.wait_for(state="visible")
+        await advanced_btn.click(force=True)
 
-    cleaned = match.group(1).strip()
+        # Wait for the modal inputs to appear
+        await frame.wait_for_selector("#ownerName", timeout=10000)
+        await frame.wait_for_selector("#LegalDscr", timeout=10000)
 
-    # Stop at keywords (Sec, Lot, Block, Addition, Subdivision)
-    stop_words = ["SEC", "LOT", "BLOCK", "ADDITION", "SUBDIVISION"]
-    for word in stop_words:
-        idx = cleaned.upper().find(word)
-        if idx != -1:
-            cleaned = cleaned[:idx].strip()
-            break
+        # Fill Owner Name and Legal Description
+        await frame.fill("#ownerName", owner_name)
+        await frame.fill("#LegalDscr", legal_desc)
 
-    return cleaned
+        # Click Submit
+        submit_btn = frame.locator("button.btn.btn-primary:has-text('Submit')")
+        await submit_btn.click()
 
-def read_excel_to_list(input_file="output.xlsx"):
-    df = pd.read_excel(input_file)
+        # Wait for the results table to load
+        await frame.wait_for_selector("table.data-table tbody tr", timeout=15000)
 
-    if df.shape[1] < 6:
-        raise ValueError("The file does not have at least 6 columns (A-F).")
+        # Extract the first row address
+        address = await frame.inner_text("table.data-table tbody tr td:nth-child(3)")
+        print("First row address:", address)
 
-    result = []
-    for _, row in df.iterrows():
-        col_e = row.iloc[4]  # Column E
-        col_f = extract_description(row.iloc[5])  # Column F (cleaned)
-        result.append([col_e, col_f])
+        await browser.close()
 
-    return result
-
-if __name__ == "__main__":
-    data = read_excel_to_list()
-    for row in data:
-        print(row)
+# Example usage
+asyncio.run(main("SALAZAR EDUARDO", "GLEANNLOCH FARMS"))
