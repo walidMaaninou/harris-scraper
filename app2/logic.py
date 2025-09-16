@@ -96,7 +96,7 @@ async def worker(page, queue, results, results_placeholder):
 async def main_async(df, results_placeholder):
     # Fill queue with full rows
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
                     extra_http_headers={
                         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
