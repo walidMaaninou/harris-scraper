@@ -1,7 +1,8 @@
 import streamlit as st
 from app1.ui import run_app1
 from app2.ui import run_app2
-
+import os
+os.system("playwright install")
 def main():
     st.sidebar.title("Navigation")
     choice = st.sidebar.radio("Go to:", ["Step 1: Scrape Instruments", "Step 2: HCAD Search"])
