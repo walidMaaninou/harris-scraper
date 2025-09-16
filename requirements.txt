@@ -3,6 +3,3 @@ beautifulsoup4
 requests
 openpyxl
 playwright
-
-# Ensure Playwright browsers are installed
-playwright install chromium
